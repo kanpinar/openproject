@@ -612,15 +612,12 @@ class User < Principal
     # Admin users are authorized for anything else
     return true if admin?
 
-    candidates_for_project_allowance(project).any? do |candidate|
-      denied = @registered_allowance_evaluators.any? do |filter|
-        filter.denied_for_project? candidate, action, project, options
-      end
-
-      !denied && @registered_allowance_evaluators.any? do |filter|
-        filter.granted_for_project? candidate, action, project, options
-      end
+    scope = User.where("1=1")
+    @registered_allowance_evaluators.each do |evaluator|
+      scope = scope.merge(evaluator.allowed_in_project_scope(action, project))
     end
+
+    scope.count == 1
   end
 
   # Is the user allowed to do the specified action on any project?

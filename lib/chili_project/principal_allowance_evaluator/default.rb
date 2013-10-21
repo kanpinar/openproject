@@ -38,10 +38,8 @@ class ChiliProject::PrincipalAllowanceEvaluator::Default < ChiliProject::Princip
   end
 
   def granted_for_project?(role, action, project, options)
-    return false unless role.is_a?(Role)
-    granted = super
-
-    granted || (project.is_public? || role.member?) && role.allowed_to?(action)
+    allowed_for_project_members(action, project) ||
+    allowed_for_non_members(action, project)
   end
 
   def global_granting_candidates
@@ -54,5 +52,23 @@ class ChiliProject::PrincipalAllowanceEvaluator::Default < ChiliProject::Princip
 
   def project_granting_candidates(project)
     @user.roles_for_project project
+  end
+
+  def allowed_in_project_scope(action, project)
+    projects = Project.arel_table
+    roles = Role.arel_table
+    members = Member.arel_table
+    users = User.arel_table
+
+    User.includes(:members => :roles)
+        .where(roles['permissions'].matches("%#{action}%"))
+        .where(members['project_id'].eq(project.id))
+        .where(users['id'].eq(@user.id))
+  end
+
+  def allowed_for_non_members(action, project)
+    project.is_public? &&
+    ((@user.logged? && Role.non_member.allowed_to?(action)) ||
+     (!@user.logged? && Role.anonymous.allowed_to?(action)))
   end
 end
