@@ -31,91 +31,301 @@ require 'spec_helper'
 describe User do
   let(:user) { FactoryGirl.build(:user) }
   let(:anonymous) { FactoryGirl.build(:anonymous) }
-  let(:project) { FactoryGirl.build(:project) }
+  let(:project) { FactoryGirl.build(:project, is_public: false) }
+  let(:project2) { FactoryGirl.build(:project, is_public: false) }
   let(:role) { FactoryGirl.build(:role) }
+  let(:role2) { FactoryGirl.build(:role) }
   let(:anonymous_role) { FactoryGirl.build(:anonymous_role) }
   let(:member) { FactoryGirl.build(:member, :project => project,
-                                        :roles => [role],
-                                        :principal => user) }
+                                            :roles => [role],
+                                            :principal => user) }
+  let(:member2) { FactoryGirl.build(:member, :project => project2,
+                                             :roles => [role2],
+                                             :principal => user) }
 
+  before do
+    user.save!
+  end
 
   describe "allowed_to?" do
-    describe "w/ the user being a member in the project
-              w/o the role having the necessary permission" do
+    describe "w/ inquiring for projects" do
+      describe "w/ the user being admin" do
 
-      before do
-        member.save!
+        before do
+          user.admin = true
+          user.save!
+        end
+
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, project).should be_true
+        end
       end
 
-      it "should be false" do
-        user.allowed_to?(:add_work_packages, project).should be_false
+      describe "w/ the user being a member in the project
+                w/o the role having the necessary permission" do
+
+        before do
+          member.save!
+        end
+
+        it "should be false" do
+          user.allowed_to?(:add_work_packages, project).should be_false
+        end
+      end
+
+      describe "w/ the user being a member in the project
+                w/ the role having the necessary permission" do
+        before do
+          role.permissions << :add_work_packages
+
+          member.save!
+        end
+
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, project).should be_true
+        end
+      end
+
+      describe "w/ the user being a member in the project
+                w/o the role having the necessary permission
+                w/ non members having the necessary permission" do
+        before do
+          project.is_public = false
+
+          non_member = Role.non_member
+          non_member.permissions << :add_work_packages
+          non_member.save!
+
+          member.save!
+        end
+
+        it "should be false" do
+          user.allowed_to?(:add_work_packages, project).should be_false
+        end
+      end
+
+      describe "w/o the user being member in the project
+                w/ non member being allowed the action
+                w/ the project being private" do
+        before do
+          project.is_public = false
+          project.save!
+
+          non_member = Role.non_member
+
+          non_member.permissions << :add_work_packages
+          non_member.save!
+        end
+
+        it "should be false" do
+          user.allowed_to?(:add_work_packages, project).should be_false
+        end
+      end
+
+      describe "w/o the user being no member in the project
+                w/ the project being public
+                w/ non members being allowed the action" do
+
+        before do
+          project.is_public = true
+          project.save!
+
+          non_member = Role.non_member
+
+          non_member.permissions << :add_work_packages
+          non_member.save!
+        end
+
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, project).should be_true
+        end
+      end
+
+      describe "w/ the user being anonymous
+                w/ the project being public
+                w/ anonymous being allowed the action" do
+
+        before do
+          project.is_public = true
+          project.save!
+
+          anonymous_role.permissions << :add_work_packages
+          anonymous_role.save!
+        end
+
+        it "should be true" do
+          anonymous.allowed_to?(:add_work_packages, project).should be_true
+        end
+      end
+
+      describe "w/ the user being anonymous
+                w/ the project being public
+                w/ anonymous being not allowed the action" do
+
+        before do
+          project.is_public = true
+          project.save!
+        end
+
+        it "should be false" do
+          anonymous.allowed_to?(:add_work_packages, project).should be_false
+        end
+      end
+
+      describe "w/ the user being a member in two projects
+                w/ the user being allowed the action in both projects" do
+
+        before do
+          role.permissions << :add_work_packages
+          role2.permissions << :add_work_packages
+
+          member.save!
+          member2.save!
+        end
+
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, [project, project2]).should be_true
+        end
+      end
+
+      describe "w/ the user being a member in two projects
+                w/ the user being allowed in only one project" do
+
+        before do
+          role.permissions << :add_work_packages
+
+          member.save!
+          member2.save!
+        end
+
+        it "should be false" do
+          user.allowed_to?(:add_work_packages, [project, project2]).should be_false
+        end
+      end
+
+      describe "w/o the user being a member in the two projects
+                w/ both projects being public
+                w/ non member being allowed the action" do
+
+        before do
+          non_member = Role.non_member
+          non_member.permissions << :add_work_packages
+          non_member.save!
+
+          project.update_attribute(:is_public, true)
+          project2.update_attribute(:is_public, true)
+        end
+
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, [project, project2]).should be_true
+        end
+      end
+
+      describe "w/o the user being a member in the two projects
+                w/ only one project being public
+                w/ non member being allowed the action" do
+
+        before do
+          non_member = Role.non_member
+          non_member.permissions << :add_work_packages
+          non_member.save!
+
+          project.update_attribute(:is_public, true)
+        end
+
+        it "should be false" do
+          user.allowed_to?(:add_work_packages, [project, project2]).should be_false
+        end
       end
     end
 
-    describe "w/ the user being a member in the project
-              w/ the role having the necessary permission" do
-      before do
-        role.permissions << :add_work_packages
+    describe "w/ inquiring globally" do
+      describe "w/ the user being admin" do
 
-        member.save!
+        before do
+          user.admin = true
+          user.save!
+        end
+
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, nil, global: true).should be_true
+        end
       end
 
-      it "should be true" do
-        user.allowed_to?(:add_work_packages, project).should be_true
-      end
-    end
+      describe "w/ the user being a member in a project
+                w/o the role having the necessary permission" do
 
-    describe "w/o the user being a member in the project
-              w/ non member being allowed the action
-              w/ the project being private" do
-      before do
-        project.is_public = false
-        project.save!
+        before do
+          member.save!
+        end
 
-        non_member = Role.non_member
-
-        non_member.permissions << :add_work_packages
-        non_member.save!
+        it "should be false" do
+          user.allowed_to?(:add_work_packages, nil, global: true).should be_false
+        end
       end
 
-      it "should be false" do
-        user.allowed_to?(:add_work_packages, project).should be_false
-      end
-    end
+      describe "w/ the user being a member in the project
+                w/ the role having the necessary permission" do
+        before do
+          role.permissions << :add_work_packages
 
-    describe "w/o the user being a member in the project
-              w/ the project being public
-              w/ non members being allowed the action" do
+          member.save!
+        end
 
-      before do
-        project.is_public = true
-        project.save!
-
-        non_member = Role.non_member
-
-        non_member.permissions << :add_work_packages
-        non_member.save!
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, nil, global: true).should be_true
+        end
       end
 
-      it "should be false" do
-        user.allowed_to?(:add_work_packages, project).should be_true
+      describe "w/ the user being a member in the project
+                w/o the role having the necessary permission
+                w/ non members having the necessary permission" do
+        before do
+          non_member = Role.non_member
+          non_member.permissions << :add_work_packages
+          non_member.save!
+
+          member.save!
+        end
+
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, nil, global: true).should be_true
+        end
       end
-    end
 
-    describe "w/o the user being anonymous
-              w/ the project being public
-              w/ anonymous being allowed the action" do
+      describe "w/o the user being no member in the project
+                w/ non members being allowed the action" do
 
-      before do
-        project.is_public = true
-        project.save!
+        before do
+          non_member = Role.non_member
+          non_member.permissions << :add_work_packages
+          non_member.save!
+        end
 
-        anonymous_role.permissions << :add_work_packages
-        anonymous_role.save!
+        it "should be true" do
+          user.allowed_to?(:add_work_packages, nil, global: true).should be_true
+        end
       end
 
-      it "should be false" do
-        anonymous.allowed_to?(:add_work_packages, project).should be_true
+      describe "w/ the user being anonymous
+                w/ anonymous being allowed the action" do
+
+        before do
+          anonymous_role.permissions << :add_work_packages
+          anonymous_role.save!
+        end
+
+        it "should be true" do
+          anonymous.allowed_to?(:add_work_packages, nil, global: true).should be_true
+        end
+      end
+
+      describe "w/ the user being anonymous
+                w/ anonymous being not allowed the action" do
+
+        it "should be false" do
+          anonymous.allowed_to?(:add_work_packages, nil, global:true).should be_false
+        end
       end
     end
   end
