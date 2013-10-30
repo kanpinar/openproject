@@ -233,7 +233,10 @@ class User < Principal
     end
   end
 
-  register_allowance_evaluator ChiliProject::PrincipalAllowanceEvaluator::Default
+  register_allowance_evaluator ChiliProject::PrincipalAllowanceEvaluator::MembershipInProject
+  register_allowance_evaluator ChiliProject::PrincipalAllowanceEvaluator::NonMember
+  register_allowance_evaluator ChiliProject::PrincipalAllowanceEvaluator::AnyMembership
+  register_allowance_evaluator ChiliProject::PrincipalAllowanceEvaluator::AnyNonMember
 
   # Returns the user that matches provided login and password, or nil
   def self.try_to_login(login, password)
@@ -612,16 +615,17 @@ class User < Principal
     # Admin users are authorized for anything else
     return true if admin?
 
-    allowed = allowed_in_project do |evaluator|
-      evaluator.allowed_in_project_scope(action, project)
-    end
+    scope = User.where("1=1")
+    condition = Arel::Nodes::Equality.new(1, 0)
 
-    if !allowed && project.is_public?
-
-      allowed = allowed_in_project do |evaluator|
-        evaluator.allowed_user_agnostic_scope(action)
+    @registered_allowance_evaluators.each do |evaluator|
+      if evaluator.applicable?(action, project)
+        scope = scope.merge(evaluator.joins(action, project))
+        condition = condition.or(evaluator.condition(action, project))
       end
     end
+
+    allowed = scope.where(condition).where(id: id).count == 1
 
     allowed
   end
@@ -644,18 +648,17 @@ class User < Principal
 
     initialize_allowance_evaluators
 
-    allowed = allowed_in_project do |evaluator|
-      evaluator.allowed_globally_scope(action)
-    end
+    scope = User.where("1=1")
+    condition = Arel::Nodes::Equality.new(1, 0)
 
-    if !allowed
-
-      allowed = allowed_in_project do |evaluator|
-        evaluator.allowed_user_agnostic_scope(action)
+    @registered_allowance_evaluators.each do |evaluator|
+      if evaluator.applicable?(action, nil)
+        scope = scope.merge(evaluator.joins(action, nil))
+        condition = condition.or(evaluator.condition(action, nil))
       end
     end
 
-    allowed
+    scope.where(condition).where(id: id).count == 1
   end
 
   # These are also implemented as strong_parameters, so also see
