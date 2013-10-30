@@ -54,4 +54,8 @@ class ChiliProject::PrincipalAllowanceEvaluator::Base
   def project_granting_candidates project
     []
   end
+
+  def identifier
+    alias_suffix.to_sym
+  end
 end

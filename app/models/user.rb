@@ -615,29 +615,7 @@ class User < Principal
     # Admin users are authorized for anything else
     return true if admin?
 
-    scope = User.where("1=1")
-    condition = Arel::Nodes::Equality.new(1, 0)
-
-    @registered_allowance_evaluators.each do |evaluator|
-      if evaluator.applicable?(action, project)
-        scope = scope.merge(evaluator.joins(action, project))
-        condition = condition.or(evaluator.condition(action, project))
-      end
-    end
-
-    allowed = scope.where(condition).where(id: id).count == 1
-
-    allowed
-  end
-
-  def allowed_in_project(&block)
-    scope = User.where("1=1")
-
-    @registered_allowance_evaluators.each do |evaluator|
-      scope = scope.merge(block.call(evaluator))
-    end
-
-    scope.where(id: id).count == 1
+    allowed_in_context(action, project)
   end
 
   # Is the user allowed to do the specified action on any project?
@@ -646,16 +624,36 @@ class User < Principal
     # Admin users are always authorized
     return true if admin?
 
+    allowed_in_context(action, nil)
+  end
+
+  def allowed_in_context(action, project)
     initialize_allowance_evaluators
+
+    scopes = Hash.new do |h, k|
+      h[k] = User.where(Arel::Nodes::Equality.new(1, 1))
+    end
+
+    conditions = Hash.new do |h, k|
+      h[k] = Arel::Nodes::Equality.new(1, 0)
+    end
+
+    @registered_allowance_evaluators.each do |evaluator|
+      if evaluator.applicable?(action, project)
+        scopes[evaluator.identifier] = scopes[evaluator.identifier].merge(evaluator.joins(action, project))
+        conditions[evaluator.identifier] = conditions[evaluator.identifier].or(evaluator.condition(action, project))
+      end
+    end
 
     scope = User.where("1=1")
     condition = Arel::Nodes::Equality.new(1, 0)
 
-    @registered_allowance_evaluators.each do |evaluator|
-      if evaluator.applicable?(action, nil)
-        scope = scope.merge(evaluator.joins(action, nil))
-        condition = condition.or(evaluator.condition(action, nil))
-      end
+    scopes.values.each do |join|
+      scope = scope.merge(join)
+    end
+
+    conditions.values.each do |condition_part|
+      condition = condition.or(condition_part)
     end
 
     scope.where(condition).where(id: id).count == 1
