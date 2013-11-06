@@ -121,7 +121,7 @@ class UsersController < ApplicationController
     if @user.change_password_allowed?
       if params[:user][:assign_random_password]
         @user.random_password!
-      else 
+      else
         @user.password = params[:user][:password]
         @user.password_confirmation = params[:user][:password_confirmation]
       end

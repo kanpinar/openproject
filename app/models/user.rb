@@ -653,7 +653,7 @@ class User < Principal
     end
 
     conditions.values.each do |condition_part|
-      condition = condition.or(condition_part)
+      condition = condition.and(condition_part)
     end
 
     scope.where(condition).where(id: id).count == 1
