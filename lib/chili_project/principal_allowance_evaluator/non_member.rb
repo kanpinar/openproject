@@ -54,11 +54,13 @@ class ChiliProject::PrincipalAllowanceEvaluator::NonMember < ChiliProject::Princ
     User.joins(agnostic_scope.join_sources)
   end
 
-  def condition(action, project)
+  def condition(condition, action, project)
     members = members_table
     roles = roles_table
 
-    roles[:id].not_eq(nil).and(members[:id].eq(nil))
+    add_condition = roles[:id].not_eq(nil).and(members[:id].eq(nil))
+
+    condition.or(add_condition)
   end
 
   private

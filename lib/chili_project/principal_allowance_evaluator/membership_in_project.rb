@@ -52,11 +52,13 @@ class ChiliProject::PrincipalAllowanceEvaluator::MembershipInProject < ChiliProj
     User.joins(joins.join_sources)
   end
 
-  def condition(action, project)
+  def condition(condition, action, project)
     roles = roles_table
     members = members_table
 
-    roles['permissions'].matches("%#{action}%").and(members['project_id'].eq(project.id))
+    add_condition = roles.grouping(roles['permissions'].matches("%#{action}%").and(members['project_id'].eq(project.id)))
+
+    condition.or(add_condition)
   end
 
   private

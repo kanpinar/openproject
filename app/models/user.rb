@@ -596,7 +596,7 @@ class User < Principal
     elsif context.is_a?(Array)
       # Authorize if user is authorized on every element of the array
       context.present? && context.all? do |project|
-        allowed_to?(action,project,options)
+        allowed_to?(action, project ,options)
       end
     elsif options[:global]
       allowed_to_globally?(action, options)
@@ -634,26 +634,19 @@ class User < Principal
       h[k] = User.where(Arel::Nodes::Equality.new(1, 1))
     end
 
-    conditions = Hash.new do |h, k|
-      h[k] = Arel::Nodes::Equality.new(1, 0)
-    end
+    condition = Arel::Nodes::Equality.new(1, 0)
 
     @registered_allowance_evaluators.each do |evaluator|
       if evaluator.applicable?(action, project)
         scopes[evaluator.identifier] = scopes[evaluator.identifier].merge(evaluator.joins(action, project))
-        conditions[evaluator.identifier] = conditions[evaluator.identifier].or(evaluator.condition(action, project))
+        condition = evaluator.condition(condition, action, project)
       end
     end
 
     scope = User.where("1=1")
-    condition = Arel::Nodes::Equality.new(1, 0)
 
     scopes.values.each do |join|
       scope = scope.merge(join)
-    end
-
-    conditions.values.each do |condition_part|
-      condition = condition.and(condition_part)
     end
 
     scope.where(condition).where(id: id).count == 1

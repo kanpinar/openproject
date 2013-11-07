@@ -48,8 +48,12 @@ class ChiliProject::PrincipalAllowanceEvaluator::AnyNonMember < ChiliProject::Pr
     User.joins(agnostic_scope.join_sources)
   end
 
-  def condition(action, project)
-    roles_table[:id].not_eq(nil)
+  def condition(condition, action, project)
+
+    add_condition = roles_table[:id].not_eq(nil)
+
+
+    condition.or(add_condition)
   end
 
   private
