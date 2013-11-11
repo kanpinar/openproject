@@ -53,9 +53,7 @@ class ChiliProject::PrincipalAllowanceEvaluator::AnyMembership < ChiliProject::P
   end
 
   def condition(condition, action, project)
-    roles = roles_table
-
-    add_condition = roles['permissions'].matches("%#{action}%")
+    add_condition = matches_condition(action)
 
     condition.or(add_condition)
   end
@@ -76,5 +74,26 @@ class ChiliProject::PrincipalAllowanceEvaluator::AnyMembership < ChiliProject::P
 
   def alias_suffix
     "any_membership"
+  end
+
+  def matches_condition(action)
+    roles = roles_table
+
+    condition = case action
+                when Symbol
+                  roles['permissions'].matches("%#{action}%")
+                when Array
+                  condition = Arel::Nodes::Equality.new(1, 0)
+
+                  action.each do |a|
+                    condition = condition.or(roles['permissions'].matches("%#{a}%"))
+                  end
+
+                  condition
+                else
+                  raise ArgumentError
+                end
+
+    roles.grouping(condition)
   end
 end

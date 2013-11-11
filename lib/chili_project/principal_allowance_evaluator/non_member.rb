@@ -37,7 +37,8 @@ class ChiliProject::PrincipalAllowanceEvaluator::NonMember < ChiliProject::Princ
     roles = roles_table
     members = members_table
 
-    permission_matches = roles[:permissions].matches("%#{action}%")
+    permission_matches = matches_condition(action)
+
     role_id = roles[:id].eq(fallback_role.id)
 
     on_condition = role_id.and(permission_matches)
@@ -87,6 +88,27 @@ class ChiliProject::PrincipalAllowanceEvaluator::NonMember < ChiliProject::Princ
 
   def alias_suffix
     "non_member"
+  end
+
+  def matches_condition(action)
+    roles = roles_table
+
+    condition = case action
+                when Symbol
+                  roles['permissions'].matches("%#{action}%")
+                when Array
+                  condition = Arel::Nodes::Equality.new(1, 0)
+
+                  action.each do |a|
+                    condition = condition.or(roles['permissions'].matches("%#{a}%"))
+                  end
+
+                  condition
+                else
+                  raise ArgumentError
+                end
+
+    roles.grouping(condition)
   end
 end
 
