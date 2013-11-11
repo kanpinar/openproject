@@ -263,6 +263,7 @@ de:
 
   # common attributes of all models
   attributes:
+    attachments: "Dateien"
     assigned_to: "Zugewiesen an"
     active: "Aktiv"
     author: "Autor"
