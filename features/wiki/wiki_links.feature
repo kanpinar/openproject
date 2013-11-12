@@ -36,6 +36,7 @@ Feature: Check links to a wiki page
       | view_wiki_pages |
       | edit_wiki_pages |
       | view_wiki_edits |
+      | view_project    |
     And there is 1 project with the following:
       | name       | project1 |
       | identifier | project1 |

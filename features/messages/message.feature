@@ -36,6 +36,7 @@ Feature: Issue textile quickinfo links
     And there is a role "member"
     And the role "member" may have the following rights:
       | manage_boards          |
+      | view_messages          |
       | add_messages           |
       | edit_messages          |
       | edit_own_messages      |
