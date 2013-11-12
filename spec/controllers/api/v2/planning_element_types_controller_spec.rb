@@ -30,6 +30,11 @@ require File.expand_path('../../../../spec_helper', __FILE__)
 
 describe Api::V2::PlanningElementTypesController do
   let (:current_user) { FactoryGirl.create(:admin) }
+  let(:anonymous_role_with_permissions) do
+    role = FactoryGirl.create(:anonymous_role)
+    role.update_attribute(:permissions, [:view_projects])
+    role.save!
+  end
 
   before do
     User.stub(:current).and_return current_user
@@ -112,58 +117,61 @@ describe Api::V2::PlanningElementTypesController do
       end
       it_should_behave_like "a controller action which needs project permissions"
 
-      describe 'with unknown project' do
-        it 'raises ActiveRecord::RecordNotFound errors' do
-          lambda do
-            get 'show', :project_id => 'blah', :id => '1337', :format => 'xml'
-          end.should raise_error(ActiveRecord::RecordNotFound)
-        end
-      end
+       describe 'with unknown project' do
+         it 'raises ActiveRecord::RecordNotFound errors' do
+           lambda do
+             get 'show', :project_id => 'blah', :id => '1337', :format => 'xml'
+           end.should raise_error(ActiveRecord::RecordNotFound)
+         end
+       end
 
-      describe 'with unknown planning element type' do
-        it 'raises ActiveRecord::RecordNotFound errors' do
-          lambda do
-            get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
-          end.should raise_error(ActiveRecord::RecordNotFound)
-        end
-      end
+       describe 'with unknown planning element type' do
+         it 'raises ActiveRecord::RecordNotFound errors' do
+           lambda do
+             get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
+           end.should raise_error(ActiveRecord::RecordNotFound)
+         end
+       end
 
-      describe 'with an planning element type, which is not enabled in the project' do
-        before do
-          FactoryGirl.create(:type, :id => '1337')
-        end
+       describe 'with an planning element type, which is not enabled in the project' do
+         before do
+           FactoryGirl.create(:type, :id => '1337')
+         end
 
-        it 'raises ActiveRecord::RecordNotFound errors' do
-          lambda do
-            get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
-          end.should raise_error(ActiveRecord::RecordNotFound)
-        end
-      end
+         it 'raises ActiveRecord::RecordNotFound errors' do
+           lambda do
+             get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
+           end.should raise_error(ActiveRecord::RecordNotFound)
+         end
+       end
 
-      describe 'with an available planning element type' do
-        before do
-          @available_planning_element_type = FactoryGirl.create(:type,
-                                                                :id => '1337')
+       describe 'with an available planning element type' do
+         before do
+           @available_planning_element_type = FactoryGirl.create(:type,
+                                                                 :id => '1337')
 
-          enable_type(project, @available_planning_element_type)
-        end
+           enable_type(project, @available_planning_element_type)
+         end
 
-        it 'assigns the available planning element type' do
-          get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
-          assigns(:type).should == @available_planning_element_type
-        end
+         it 'assigns the available planning element type' do
+           get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
+           assigns(:type).should == @available_planning_element_type
+         end
 
-        it 'renders the show template' do
-          get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
-          response.should render_template('planning_element_types/show', :formats => ["api"])
-        end
-      end
+         it 'renders the show template' do
+           get 'show', :project_id => project.identifier, :id => '1337', :format => 'xml'
+           response.should render_template('planning_element_types/show', :formats => ["api"])
+         end
+       end
     end
   end
 
   describe 'without project scope' do
+
     describe 'index.xml' do
       def fetch
+        anonymous_role_with_permissions
+
         get 'index', :format => 'xml'
       end
       it_should_behave_like "a controller action with unrestricted access"
@@ -231,6 +239,8 @@ describe Api::V2::PlanningElementTypesController do
         end
 
         def fetch
+          anonymous_role_with_permissions
+
           get 'show', :id => '1337', :format => 'xml'
         end
         it_should_behave_like "a controller action with unrestricted access"
